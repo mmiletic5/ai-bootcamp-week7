@@ -6,11 +6,17 @@ Measure the existing RAG system on a frozen 12-question evaluation set, document
 
 The controlled improvement was M1: replace fixed-character chunking as the active strategy with sentence-aware chunking. The experiment changed chunk construction only. Retrieval scoring, `TOP_K`, stopword behavior, version filtering, refusal and citation thresholds, answer generation, corpus content, evaluation questions, and metric calculations remained unchanged.
 
-## Team responsibilities
+## Joint authorship and shared responsibility
 
-- Mateja Miletic completed the original-state inspection, baseline tests and evaluation, preservation of `results/before.json`, failure analysis, and the pre-implementation M1 specification.
-- Isidora Prica added the focused tests, implemented and activated sentence-aware chunking, performed integration and regression verification, generated `results/after.json`, and preserved the comparison output.
-- Joint final review, external peer review, and the Session 2 demonstration lead remain pending.
+**Joint project authors:** Mateja Miletic and Isidora Prica.
+
+Our team collaboratively planned, developed, evaluated, and reviewed the Week 7 RAG improvement. The work was organized with the following primary responsibilities:
+
+- Mateja Miletic coordinated the baseline evaluation, initial failure analysis, and pre-implementation M1 specification.
+- Isidora Prica coordinated the sentence-aware chunking implementation, implementation tests, and post-change evaluation.
+- Both team members contributed to the shared technical documentation, review of measured results, identification of remaining limitations, and overall project conclusions.
+
+Every project commit records the other team member as a co-author, reflecting the collaborative nature of the work. These roles describe primary coordination and do not imply that the project was completed as unrelated individual efforts.
 
 ## Baseline and motivating failures
 
@@ -58,7 +64,7 @@ The original character splitter remains available and unchanged. Chunk construct
 
 The before/after configuration snapshots confirm that `CHUNK_STRATEGY: chars -> sentences` was the only changed setting. This implementation plus activation is one logical change because the new splitter cannot be evaluated without selecting it.
 
-## Implementation and verification
+## Implementation, integration audit, and acceptance
 
 Production changes were limited to:
 
@@ -67,7 +73,7 @@ Production changes were limited to:
 
 Focused tests in `tests/test_chunking.py` cover `.`, `?`, and `!` boundaries; whitespace normalization; greedy and exact-size packing; overflow; oversized sentences; empty and invalid inputs; trailing fragments; punctuation without following whitespace; deterministic output; normalized content coverage; strategy activation; and existing chunk ID and metadata behavior.
 
-Verified test results:
+Our team recorded the following implementation verification results:
 
 ```text
 Focused chunking tests: 19 passed in 0.04s
@@ -76,7 +82,7 @@ Full test suite:         34 passed in 0.15s
 
 The read-only integration smoke check loaded 10 documents and generated 26 sentence-aware chunks with 26 unique IDs. It verified normalized document coverage, metadata preservation, active sentence dispatch, retrieval, supported-answer citations, and the refusal interface. In `hb-01`, the 163-character replacement-timeframe sentence remained intact as an intentionally oversized chunk containing `5 business days`.
 
-These checks demonstrate implementation correctness and pipeline compatibility. RAG quality is established separately by the fixed evaluation results below.
+The completed integration audit additionally confirmed 34/34 tests passing; no implementation defects or deviations from `m1-change-spec.md`; no unrelated changes to retrieval, RAG, corpus, evaluation set, or evaluator metrics; and matching before/after evaluation fingerprints. Mateja accepts Isidora's implementation on the basis of that completed technical audit. These checks demonstrate implementation correctness and pipeline compatibility. RAG quality is established separately by the fixed evaluation results below.
 
 ## Before/after metrics
 
@@ -87,7 +93,7 @@ These checks demonstrate implementation correctness and pipeline compatibility. 
 | Retrieval hit rate | 0.7778 | 0.8889 | +0.1111 |
 | Mean citation precision | 0.4545 | 0.5455 | +0.0910 |
 
-The measured result supports the M1 hypothesis for E04 and E09. It also produced a measured improvement for E06. Behaviour accuracy did not change because E10 and E11 still answered unsupported questions, while the newly fixed supported cases already had correct answer behavior before M1.
+Our measured result supports the M1 hypothesis for the original targets E04 and E09. We also observed an additional improvement for E06. Behaviour accuracy did not change because E10 and E11 still answered unsupported questions, while the newly fixed supported cases already had correct answer behavior before M1.
 
 ## Per-question results
 
@@ -106,7 +112,7 @@ The measured result supports the M1 hypothesis for E04 and E09. It also produced
 | E11 | FAIL | FAIL | The unsupported near-domain question was still answered; behavior remained incorrect and precision remained 0.0. |
 | E12 | PASS | PASS | Correct refusal remained unchanged. |
 
-Fixed cases were E04, E06, and E09. No case moved from PASS to FAIL. Comparing behavior correctness, retrieval hit, fact-in-citations, and citation precision found no observed metric-level regression. E05, E10, and E11 remain unresolved.
+We confirmed that E04, E06, and E09 were fixed. No case moved from PASS to FAIL, and comparison of behaviour correctness, retrieval hit, fact-in-citations, and citation precision found no measured regression. E04 and E09 were the original M1 targets; E06 was an additional observed improvement. E05, E10, and E11 remain unsuccessful.
 
 ## Limitations and remaining risks
 
@@ -148,23 +154,16 @@ Codex assisted with repository inspection, implementation planning, focused test
 
 ## Manual CLI verification
 
-The changed E04 question was manually inspected with:
+The changed E04 question was manually inspected during the completed technical work with:
 
 ```powershell
 .\.venv\Scripts\python.exe -m src.cli --question "How many business days does a laptop replacement take?" --show-retrieved
 ```
 
-The command exited with code 0 and returned an answer rather than a refusal (`Refused: False`). It retrieved and cited both `hb-01-chunk-1` at 0.2069 and `hb-01-chunk-0` at 0.2000. `hb-01-chunk-1` explicitly states that laptop handover can take up to `5 business days`. The displayed answer is supported by the retrieved evidence and agrees with the E04 PASS result in `results/after.json`.
+Mateja's completed read-only integration audit independently verified the same E04 result locally. The command returned an answer rather than a refusal (`Refused: False`) and retrieved and cited both `hb-01-chunk-1` at 0.2069 and `hb-01-chunk-0` at 0.2000. `hb-01-chunk-1` explicitly states that laptop handover can take up to `5 business days`. The displayed answer is supported by the retrieved evidence and agrees with the E04 PASS result in `results/after.json`.
 
-## Pending team and submission work
+## Joint final conclusion — Mateja Miletic and Isidora Prica
 
-The following requirements are not yet supported by completed evidence and remain pending:
+M1 sentence-aware chunking was the only intentional RAG behavior change. We used the same frozen 12-question evaluation set before and after implementation, as confirmed by matching evaluation fingerprints. Our team measured an improvement from 6/12 to 9/12 passing cases: E04 and E09, the original M1 targets, improved; E06 was an additional observed improvement; and no PASS-to-FAIL regression was observed. E05, E10, and E11 remain unsuccessful.
 
-- Mateja and Isidora jointly review the complete diff and confirm the one-change rule.
-- Obtain the assigned external pair's review comment addressing whether the change is one controlled change, whether the evidence supports the conclusion, and whether any regression or limitation was omitted.
-- Perform the reciprocal review of the assigned pair as required by the course process.
-- Confirm and record the Session 2 demonstration lead.
-- Prepare commit or diff evidence. Before every commit, verify the staged file list and summary, run `git diff --cached --check`, show the exact message, confirm Isidora as author, and confirm Mateja's exact co-author address.
-- Ensure both team members submit the same report and required evidence through the official delivery process.
-
-No peer review, joint final conclusion, commit, submission, or demonstration ownership is claimed complete in this report.
+The measured evidence supports our conclusion that M1 improved this checkpoint. It does not imply that sentence-aware chunking solves every RAG limitation: the remaining failures and the risks documented above remain part of our final technical assessment. This report represents the shared technical conclusions of Mateja Miletic and Isidora Prica.
